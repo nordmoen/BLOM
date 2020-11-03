@@ -5,11 +5,15 @@
 #SBATCH --gres=gpu:v100:1
 #SBATCH --partition=gpu
 #SBATCH --reservation=gpuhackathon
-#SBATCH --mem-per-cpu 32GB
+#SBATCH --mem-per-cpu=32GB
 
-module load pgi cuda
+module load nsight-systems cuda/10.1.168
 
-srun ./blom
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/scratch/project_2003520/netCDF/lib
+
+#nvprof --cpu-profiling on ./blom
+#./blom
+nsys profile -t nvtx,openacc -f true -o blom_profile ./blom
 
 # Submit to the batch job queue with the command:
 #  sbatch job.sh

@@ -11,7 +11,7 @@ AR=ar
 # Include directory for modules
 MODINC=
 # Linker flags
-LIBS=-L/scratch/project_2003520/netCDF/lib -lnetcdf -lnetcdff 
+LIBS=-L/scratch/project_2003520/netCDF/lib -lnetcdf -lnetcdff
 # External names
 EXTNAME=
 
@@ -19,13 +19,14 @@ EXTNAME=
 # Optimization level
 OPT=-fast
 OPENMP=
-DEBUG=
+DEBUG=-g
+OPENACC=-acc -Minfo=accel -ta=tesla:managed
 #FFLAGS=-r8 -Kieee -byteswapio -Mrecursive -mcmodel=medium -Mflushz $(OPT) $(OPENMP) $(DEBUG) -I$HOME/netCDF/include/
-FFLAGS=-r8 -Kieee -byteswapio -Mrecursive -mcmodel=medium -Mflushz $(OPT) $(OPENMP) $(DEBUG) -I/scratch/project_2003520/netCDF/include
+FFLAGS=-r8 -Kieee -byteswapio -Mrecursive -mcmodel=medium -Mflushz $(OPT) $(OPENMP) $(DEBUG) $(OPENACC) -I/scratch/project_2003520/netCDF/include
 CFLAGS=-Kieee $(OPENMP) -mcmodel=medium
 
 # Linker flags
-LDFLAGS=$(LIBS) $(OPENMP) $(DEBUG)
+LDFLAGS=$(LIBS) $(OPENMP) $(OPENACC) $(DEBUG)
 
 # Archiver flags
 ARFLAGS=-r

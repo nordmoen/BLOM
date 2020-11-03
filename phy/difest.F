@@ -179,7 +179,15 @@ c
       tmp2d_7=0.
 #endif
 c
+      call xctilr(u, 1,2*kk, 2,2, halo_uv)
+      call xctilr(v, 1,2*kk, 2,2, halo_vv)
+      call xctilr(ubflxs_p, 1,2, 2,2, halo_uv)
+      call xctilr(vbflxs_p, 1,2, 2,2, halo_vv)
+      call xctilr(pbu, 1,2, 2,2, halo_us)
+      call xctilr(pbv, 1,2, 2,2, halo_vs)
+c
 c$OMP PARALLEL DO PRIVATE(k,kn,l,i)
+!$acc kernels
       do j=-2,jj+3
         do k=1,kk
           kn=k+nn
@@ -190,14 +198,8 @@ c$OMP PARALLEL DO PRIVATE(k,kn,l,i)
           enddo
         enddo
       enddo
+!$acc end kernels
 c$OMP END PARALLEL DO
-c
-      call xctilr(u, 1,2*kk, 2,2, halo_uv)
-      call xctilr(v, 1,2*kk, 2,2, halo_vv)
-      call xctilr(ubflxs_p, 1,2, 2,2, halo_uv)
-      call xctilr(vbflxs_p, 1,2, 2,2, halo_vv)
-      call xctilr(pbu, 1,2, 2,2, halo_us)
-      call xctilr(pbv, 1,2, 2,2, halo_vs)
 c
 c --- ------------------------------------------------------------------
 c --- Estimate energy input by near-inertial motions by considering the

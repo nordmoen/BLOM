@@ -21,6 +21,9 @@
       subroutine momtum(m,n,mm,nn,k1m,k1n)
 c
       use mod_xc
+#ifdef _OPENACC
+      use openacc
+#endif
 c
       implicit none
 c
@@ -42,8 +45,22 @@ c
       integer i,j,k,l,kn,km,kan
 c
       real hfharm
+!$acc routine (hfharm)
       external hfharm
 c
+!$acc data create(util1,util2,pbotl,ptopl,ubot,vbot,ubbl,q,dl2u,dl2v)
+!$acc& copy(isu,isv,ubcors_p,vbcors_p,isp,ifp,ilp,tsfac,dpu,dpv,ilv)
+!$acc& create(drag,ubrhs,vbrhs,stress,dpmx,vsc2,vsc4,vort,wgtia,wgtib)
+!$acc& create(wgtja,wgtjb,dl2u,dl2uja,dl2ujb,dl2v,dl2via,dl2vib,ke)
+!$acc& create(uh_min,uh_max,vh_min,vh_max,cau,cav,uflux1,vflux1)
+!$acc& copy(ifv,ifu,ilu,scuy,scvx,pbv,pbu,dp,uja,ujb,corioq,scq2i)
+!$acc& copy(vflux,uflux,ubflxs_p,vbflxs_p,via,vib,scp2i,utotn,vtotn)
+!$acc& copy(pv,pu,scp2,scv2,dpuold,dpvold,u,v,uflux2,vflux2,ub,vb)
+!$acc& copy(umax,vmax,pbv_p,pbu_p,potvor,iu,difmxq,ifq,vtotm,scqy)
+!$acc& copy(scpx,defor2,isq,scpy,tauy,taux,pgfy,pgfxo,scvy,utotm)
+!$acc& copy(ilq,difmxp,dpvor,jlv,jfv,iv,defor1,jsv,scux,vflux3)
+!$acc& copy(uflux3,pgfx,scuxi,p,jlu,jfu,difwgt,scqx,pgfyo,jsu)
+!$acc& copy(ustarb,scvyi,scu2,absvor)
       cutoff=onem
       thkbop=thkbot*onem
       tsfac=dlt/delt1
@@ -71,7 +88,8 @@ c$OMP END PARALLEL DO
 c
 c --- bottom drag (standard bulk formula)
 c
-c$OMP PARALLEL DO PRIVATE(l,i,k,kn,pbotl,ptopl,ubot,vbot,ubbl,q)
+c$OMP PARALLEL DO PRIVATE(l,i,k,kn,pbotl,ptopl,ubot,vbot,ubbl,q) 
+!$acc parallel loop async
       do j=0,jj
         do l=1,isp(j)
 c
@@ -109,12 +127,14 @@ c
 c
         enddo
       enddo
+!$acc end parallel loop
 c$OMP END PARALLEL DO
 c
 c --- store r.h.s. of barotropic u/v eqn. in -ubrhs,vbrhs-
 c --- store wind forcing in -stresx,stresy-
 c
 c$OMP PARALLEL DO PRIVATE(l,i)
+!$acc parallel loop async
       do j=1,jj
         do l=1,isu(j)
         do i=max(1,ifu(j,l)),min(ii,ilu(j,l))
@@ -128,8 +148,10 @@ c$OMP PARALLEL DO PRIVATE(l,i)
         enddo
       enddo
 c$OMP END PARALLEL DO
+!$acc end parallel loop
 c
 c$OMP PARALLEL DO PRIVATE(i)
+!$acc parallel loop async collapse(2)
       do j=0,jj+1
         do i=0,ii+1
           dl2u(i,j)=0.
@@ -137,11 +159,13 @@ c$OMP PARALLEL DO PRIVATE(i)
         enddo
       enddo
 c$OMP END PARALLEL DO
+!$acc end parallel loop
 c
       do k=1,kk
-        km=k+mm
+!$acc parallel loop
 c$OMP PARALLEL DO PRIVATE(l,i)
         do j=-1,jj+2
+        km=k+mm
           do l=1,isu(j)
           do i=max(-1,ifu(j,l)),min(ii+2,ilu(j,l))
             pu(i,j,k+1)=pu(i,j,k)+dpu(i,j,km)
@@ -154,7 +178,10 @@ c$OMP PARALLEL DO PRIVATE(l,i)
           enddo
         enddo
 c$OMP END PARALLEL DO
+!$acc end parallel loop
       enddo
+c
+!$acc wait
 c
       call xctilr(difwgt,  1,1, 2,2, halo_ps)
 c
@@ -167,6 +194,8 @@ c$OMP+ botstr,pgf,vflux1)
 c$OMP+FIRSTPRIVATE(
 c$OMP+ defor2,utotm,utotn,uflux,vtotm,vtotn,vflux,uja,ujb,dl2u,via,vib,
 c$OMP+ dl2v,uh_min,uh_max,vh_min,vh_max,uflux2,uflux3,vflux2,vflux3)
+!$acc parallel
+!$acc loop
       do k=1,kk
         km=k+mm
         kn=k+nn
@@ -176,12 +205,15 @@ c --- - time in -utotn,vtotn- and -utotm,vtotm- respectively. store
 c --- - minimum thickness values for use in pot.vort. calculation in
 c --- - -dpmx-.
 c
+!$acc loop collapse(2)
         do j=0,jj+2
           do i=0,ii+2
             dpmx(i,j)=8.*cutoff
           enddo
         enddo
+!$acc end loop
 c
+!$acc loop
         do j=0,jj+2
           do l=1,isu(j)
           do i=max(0,ifu(j,l)),min(ii+2,ilu(j,l))
@@ -189,7 +221,9 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
+!$acc loop
         do j=-1,jj+1
           do l=1,isu(j)
           do i=max(0,ifu(j,l)),min(ii+2,ilu(j,l))
@@ -198,6 +232,7 @@ c
           enddo
         enddo
 c
+!$acc loop
         do j=0,jj+2
           do l=1,isv(j)
           do i=max(0,ifv(j,l)),min(ii+2,ilv(j,l))
@@ -205,7 +240,9 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
+!$acc loop
         do j=0,jj+2
           do l=1,isv(j)
           do i=max(-1,ifv(j,l)),min(ii+1,ilv(j,l))
@@ -213,7 +250,9 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
+!$acc loop
         do j=0,jj+1
           do l=1,isu(j)
           do i=max(0,ifu(j,l)),min(ii+1,ilu(j,l))
@@ -223,7 +262,9 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
+!$acc loop
         do j=-1,jj+2
           do l=1,isu(j)
           do i=max(-1,ifu(j,l)),min(ii+2,ilu(j,l))
@@ -232,7 +273,9 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
+!$acc loop
         do j=0,jj+1
           do l=1,isv(j)
           do i=max(0,ifv(j,l)),min(ii+1,ilv(j,l))
@@ -242,7 +285,9 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
+!$acc loop
         do j=-1,jj+2
           do l=1,isv(j)
           do i=max(-1,ifv(j,l)),min(ii+2,ilv(j,l))
@@ -251,12 +296,14 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
 c --- - define auxiliary velocity fields (via,vib,uja,ujb) to implement
 c --- - sidewall friction along near-vertical bottom slopes.
 c --- - wgtja,wgtjb,wgtia, wgtib indicate the extent to which a sidewall
 c --- - is present.
 c
+!$acc loop
         do j=-1,jj+2
           do l=1,isu(j)
           do i=max(0,ifu(j,l)),min(ii+2,ilu(j,l))
@@ -273,9 +320,11 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c --- - (to switch from biharmonic to laplacian friction, delete
 c --- - previous line)
 c
+!$acc loop
         do j=0,jj+2
           do l=1,isv(j)
           do i=max(-1,ifv(j,l)),min(ii+2,ilv(j,l))
@@ -292,10 +341,12 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c --- - (to switch from biharmonic to laplacian friction, delete
 c --- - previous line)
 c
 c --- - vorticity, pot.vort., defor. at lateral boundary points
+!$acc loop
         do j=1,jj
           do l=1,isv(j)
             i=ifv(j,l)
@@ -316,7 +367,9 @@ c --- - vorticity, pot.vort., defor. at lateral boundary points
             endif
           enddo
         enddo
+!$acc end loop
 c
+!$acc loop
         do j=0,jj+2
           do l=1,isv(j)
             i=ifv(j,l)
@@ -331,7 +384,9 @@ c
             endif
           enddo
         enddo
+!$acc end loop
 c
+!$acc loop
         do i=1,ii+1
           do l=1,jsu(i)
             j=jfu(i,l)
@@ -352,7 +407,9 @@ c
             endif
           enddo
         enddo
+!$acc end loop
 c
+!$acc loop
         do i=0,ii+2
           do l=1,jsu(i)
             j=jfu(i,l)
@@ -367,11 +424,13 @@ c
             endif
           enddo
         enddo
+!$acc end loop
 c
 c --- - vorticity, pot.vort., defor. at interior points (incl.
 c --- - promontories).  defor1 = du/dx-dv/dy at mass points,
 c --- - defor2 = dv/dx+du/dy at vort. points
 c
+!$acc loop
         do j=-1,jj+1
           do l=1,isp(j)
           do i=max(-1,ifp(j,l)),min(ii+1,ilp(j,l))
@@ -383,7 +442,9 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
+!$acc loop
         do j=1,jj+1
           do l=1,isq(j)
           do i=max(1,ifq(j,l)),min(ii+1,ilq(j,l))
@@ -399,7 +460,9 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
+!$acc loop
         do j=0,jj+2
           do l=1,isq(j)
           do i=max(0,ifq(j,l)),min(ii+2,ilq(j,l))
@@ -409,11 +472,13 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
 c --- - define auxiliary del2 fields (dl2via,dl2vib,dl2uja,dl2ujb) to
 c --- - implement biharmonic sidewall friction along near-vertical
 c --- - bottom slopes.
 c
+!$acc loop
         do j=1,jj
           do l=1,isu(j)
           do i=max(1,ifu(j,l)),min(ii,ilu(j,l))
@@ -432,10 +497,12 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
 c --- - compute area weighted kinetic energy according to Arakawa and
 c --- - Lamb (1981)
 c
+!$acc loop
         do j=0,jj
           do l=1,isp(j)
           do i=max(0,ifp(j,l)),min(ii,ilp(j,l))
@@ -486,11 +553,13 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 
         if (mommth.eq.'enedis') then
 c
 c --- -- compute min,max values for Sadourny (1975) energy conserving
 c --- -- scheme with dissipation
+!$acc loop
           do j=0,jj+1
             do l=1,isu(j)
             do i=max(0,ifu(j,l)),min(ii+1,ilu(j,l))
@@ -541,6 +610,7 @@ c --- -- scheme with dissipation
             enddo
             enddo
           enddo
+!$acc end loop
 c
         endif
 c
@@ -550,6 +620,7 @@ c
 c
 c --- --- Sadourny (1975) enstrophy conserving scheme
 c
+!$acc loop
           do j=1,jj
             do l=1,isu(j)
             do i=max(1,ifu(j,l)),min(ii,ilu(j,l))
@@ -566,11 +637,13 @@ c
             enddo
             enddo
           enddo
+!$acc end loop
 c
         elseif (mommth.eq.'enecon') then
 c
 c --- --- Sadourny (1975) energy conserving scheme
 c
+!$acc loop
           do j=1,jj
             do l=1,isu(j)
             do i=max(1,ifu(j,l)),min(ii,ilu(j,l))
@@ -589,12 +662,14 @@ c
             enddo
             enddo
           enddo
+!$acc end loop
 c
         elseif (mommth.eq.'enedis') then
 c
 c --- --- Sadourny (1975) energy conserving scheme with a little bit
 c --- --- dissipation
 c
+!$acc loop
           do j=1,jj
             do l=1,isu(j)
             do i=max(1,ifu(j,l)),min(ii,ilu(j,l))
@@ -639,14 +714,15 @@ c
             enddo
             enddo
           enddo
+!$acc end loop
 c
         else
           if (mnproc.eq.1) then
-            write (lp,'(3a)') ' mommth=',trim(mommth),
-     .                        ' is unsupported!'
+!            write (lp,'(3a)') ' mommth=',trim(mommth),
+!     .                        ' is unsupported!'
           endif
-          call xcstop('(momtum)')
-                 stop '(momtum)'
+!          call xcstop('(momtum)')
+!                 stop '(momtum)'
         endif
 c
 c --- - ----------
@@ -655,6 +731,7 @@ c --- - ----------
 c
 c --- - deformation-dependent eddy viscosity coefficient
 c
+!$acc loop
         do j=0,jj+1
           do l=1,isu(j)
           do i=max(0,ifu(j,l)),min(ii+1,ilu(j,l))
@@ -668,9 +745,10 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
+!$acc loop
         do j=1,jj
-c
           do l=1,isu(j)
             i=ifu(j,l)
             if (i.gt.0   ) then
@@ -740,11 +818,13 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
         if (k.eq.1) then
 c
 c --- --- store wind forcing in -stress-
 c
+!$acc loop
           do j=1,jj
             do l=1,isu(j)
             do i=max(1,ifu(j,l)),min(ii,ilu(j,l))
@@ -753,7 +833,9 @@ c
             enddo
             enddo
           enddo
+!$acc end loop
         else
+!$acc loop
           do j=1,jj
             do l=1,isu(j)
             do i=max(1,ifu(j,l)),min(ii,ilu(j,l))
@@ -761,8 +843,9 @@ c
             enddo
             enddo
           enddo
+!$acc end loop
         endif
-c
+!$acc loop
         do j=1,jj
           do l=1,isu(j)
           do i=max(1,ifu(j,l)),min(ii,ilu(j,l))
@@ -797,6 +880,7 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
 c --- - ----------
 c --- - v equation
@@ -804,6 +888,7 @@ c --- - ----------
 c
 c --- - deformation-dependent eddy viscosity coefficient
 c
+!$acc loop
         do j=0,jj+1
           do l=1,isv(j)
           do i=max(0,ifv(j,l)),min(ii+1,ilv(j,l))
@@ -817,7 +902,9 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
+!$acc loop
         do i=0,ii+1
           do l=1,jsv(i)
             j=jfv(i,l)
@@ -832,9 +919,11 @@ c
             endif
           enddo
         enddo
+!$acc end loop
 c
 c --- - longitudinal turb. momentum flux (at mass points)
 c
+!$acc loop
         do j=0,jj
           do l=1,isp(j)
           do i=max(1,ifp(j,l)),min(ii,ilp(j,l))
@@ -851,11 +940,13 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
 c --- - lateral turb. momentum flux (at vorticity points)
 c --- - (left and right fluxes are evaluated separately because of
 c --- - sidewalls)
 c
+!$acc loop
         do j=1,jj
           do l=1,isv(j)
           do i=max(1,ifv(j,l)),min(ii,ilv(j,l))
@@ -893,11 +984,13 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
         if (k.eq.1) then
 c
 c --- - store wind forcing in -stress-
 c
+!$acc loop
           do j=1,jj
             do l=1,isv(j)
             do i=max(1,ifv(j,l)),min(ii,ilv(j,l))
@@ -906,7 +999,9 @@ c
             enddo
             enddo
           enddo
+!$acc end loop
         else
+!$acc loop
           do j=1,jj
             do l=1,isv(j)
             do i=max(1,ifv(j,l)),min(ii,ilv(j,l))
@@ -914,8 +1009,10 @@ c
             enddo
             enddo
           enddo
+!$acc end loop
         endif
 c
+!$acc loop
         do j=1,jj
           do l=1,isv(j)
           do i=max(1,ifv(j,l)),min(ii,ilv(j,l))
@@ -950,8 +1047,11 @@ c
           enddo
           enddo
         enddo
+!$acc end loop
 c
       enddo
+!$acc end loop
+!$acc end parallel
 c$OMP END PARALLEL DO
 c
 c --- substitute depth-weighted averages for (u,v) at massless grid points.
@@ -960,6 +1060,7 @@ c --- extract barotropic velocities generated during most recent baroclinic
 c --- time step and use them to force barotropic flow field.
 c
 c$OMP PARALLEL DO PRIVATE(l,i,k,km,kn,kan,q)
+!$acc parallel loop
       do j=1,jj
 c
         do l=1,isu(j)
@@ -1005,6 +1106,7 @@ c
         enddo
       enddo
 c$OMP END PARALLEL DO
+!$acc end parallel loop
 c
 c --- time smoothing of -u,v- fields  (part 2)
 c
@@ -1012,6 +1114,7 @@ c
         km=k+mm
         kn=k+nn
 c
+!$acc parallel loop async
 c$OMP PARALLEL DO PRIVATE(l,i)
         do j=1,jj
           do l=1,isu(j)
@@ -1024,7 +1127,9 @@ c$OMP PARALLEL DO PRIVATE(l,i)
           enddo
         enddo
 c$OMP END PARALLEL DO
+!$acc end parallel loop
 c
+!$acc parallel loop async
 c$OMP PARALLEL DO PRIVATE(l,i)
         do j=1,jj
           do l=1,isv(j)
@@ -1037,9 +1142,12 @@ c$OMP PARALLEL DO PRIVATE(l,i)
           enddo
         enddo
 c$OMP END PARALLEL DO
+!$acc end parallel loop
+!$acc wait
 c
       enddo
 c
+!$acc parallel loop async
 c$OMP PARALLEL DO PRIVATE(l,i)
       do j=1,jj
         do l=1,isu(j)
@@ -1054,10 +1162,12 @@ c$OMP PARALLEL DO PRIVATE(l,i)
         enddo
       enddo
 c$OMP END PARALLEL DO
+!$acc end parallel loop
 c
 c --- store 'old' interface pressures in -pu,pv- (to be used later for
 c --- momentum redistribution)
 c
+!$acc parallel loop async
 c$OMP PARALLEL DO PRIVATE(k,kn,l,i)
       do j=1,jj
         do k=1,kk
@@ -1075,6 +1185,9 @@ c$OMP PARALLEL DO PRIVATE(k,kn,l,i)
         enddo
       enddo
 c$OMP END PARALLEL DO
+!$acc end parallel loop
+!$acc wait
+!$acc end data
 c
       if (csdiag) then
         if (mnproc.eq.1) then
