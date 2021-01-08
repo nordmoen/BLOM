@@ -1,34 +1,19 @@
-dimensions = library('dimensions', 'dimensions.F')
+phy_sources = ['advect.F', 'barotp.F', 'bigrid.F', 'blkdat.F', 'blom_init.F',
+'blom_step.F', 'chksum.F', 'chksummsk.F', 'chkvar.F', 'clndr.F', 'cmnfld.F',
+'cmnfld_bfsqf.F', 'cmnfld_nslope.F', 'convec.F', 'crc.c', 'diapfl.F',
+'difest.F', 'diffus.F', 'dimensions.F', 'eddtra.F', 'eddtra_gm.F',
+'eddtra_intdif.F', 'eosdat.F', 'eosfun.F', 'fill_global.F', 'forfun_channel.F',
+'frcdat.F', 'fwbbal.F', 'geoenv_channel.F', 'geoenv_file.F', 'geoenv_test.F',
+'getfrc.F', 'getlpi.F', 'gettime.F', 'hfharm.F', 'icaux_channel.F',
+'ictsz_channel.F', 'ictsz_file.F', 'idarlx.F', 'inicon.F', 'inifrc.F',
+'inigeo.F', 'iniphy.F', 'initime.F', 'initke.F', 'inivar.F', 'intp1d.F',
+'isinf.F', 'isnan.F', 'mod_channel.F', 'mod_dia.F', 'mod_nctools.F',
+'mod_swabs.F', 'mod_xc.F', 'momtum.F', 'mxlayr.F', 'pbtcor.F', 'penint.F',
+'pgforc.F', 'rdcsss.F', 'rdlim.F', 'read_twedon.F', 'remap_eitflx.F',
+'remap_eitvel.F', 'restart_rd.F', 'restart_wt.F', 'settemmin.F', 'sfcstr.F',
+'sfcstr_channel.F', 'stdbud.F', 'thermf.F', 'thermf_channel.F', 'tmsmt1.F',
+'tmsmt2.F', 'triint.F', 'types.F90', 'wdiflx.F', 'wtime.F']
 
-wtime = library('wtime', 'wtime.F')
-
-mod_xc = library('mod_xc', ['mod_xc.F'],
-  link_with: [dimensions, wtime],
-  extra_files: ['mod_xc_mp.inc', 'mod_xc_sm.inc'],
-  dependencies: [omp])
-
-crc = library('crc', 'crc.c',
-  include_directories: [phy_inc])
-
-chksum = library('chksum', 'chksum.F',
-  link_with: [mod_xc, crc])
-
-chksummsk = library('chksummsk', 'chksummsk.F',
-  link_with: [mod_xc, crc])
-
-triint = library('triint', 'triint.F')
-
-penint = library('penint', 'penint.F')
-
-remap_eitflx = library('remap_eitflx', 'remap_eitflx.F',
-  include_directories: [trc_inc],
-  link_with: [mod_xc, triint, penint])
-
-remap_eitvel = library('remap_eitvel', 'remap_eitvel.F',
-  include_directories: [trc_inc],
-  link_with: [mod_xc, triint, penint])
-
-advect = library('advect', 'advect.F',
-  link_with: [mod_xc, chksummsk, remap_eitflx, remap_eitvel],
-  include_directories: [phy_inc, trc_inc],
-  dependencies: [omp])
+foreach src: phy_sources
+  sources += 'phy/' + src
+endforeach
