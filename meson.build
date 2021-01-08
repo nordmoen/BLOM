@@ -51,6 +51,7 @@ endif
 
 if get_option('parallel_netcdf')
   add_global_arguments('-DPNETCDF', language: 'fortran')
+  deps += dependency('pnetcdf')
   if not get_option('mpi')
     warning('MPI must be enabled for parallel NetCDF to work')
   endif
