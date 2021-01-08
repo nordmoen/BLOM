@@ -11,22 +11,52 @@ else
   warning('Unknown Fortran compiler ("' + fcc.get_id() + '"), no default flags specified')
 endif
 
+# Define global dependencies that multiple subdirectories will utilize
+netcdf = dependency('netcdf', language: 'fortran')
+omp = dependency('openmp', required: get_option('openmp'))
+quadmath = fcc.find_library('quadmath')
+
+# List of dependencies (used so that options can add dependencies at build)
+deps = [netcdf, omp, quadmath]
+
+# Directories with header files
+cesm_inc = include_directories('cesm')
+phy_inc = include_directories('phy')
+trc_inc = include_directories('trc')
+
+# List of directories to include
+includes = [cesm_inc, phy_inc, trc_inc]
+
 # Handle options and add necessary flags
 if get_option('levitus2x')
   add_global_arguments('-DLEVITUS2X', language: 'fortran')
 endif
 
-# Define global dependencies that multiple subdirectories will utilize
-netcdf = dependency('netcdf', language: 'fortran')
-omp = dependency('openmp', required: false)
-quadmath = fcc.find_library('quadmath')
+if get_option('tke')
+  add_global_arguments('-DTKE', language: 'fortran')
+endif
 
-# Include directories with header files
-cesm_inc = include_directories('cesm')
-phy_inc = include_directories('phy')
-trc_inc = include_directories('trc')
+if get_option('tkeadv')
+  add_global_arguments('-DTKEADV', language: 'fortran')
+endif
 
-# List of all sources in the project
+if get_option('idlage')
+  add_global_arguments('-DIDLAGE', language: 'fortran')
+endif
+
+if get_option('mpi')
+  add_global_arguments('-DMPI', language: 'fortran')
+  deps += dependency('mpi', language: 'fortran')
+endif
+
+if get_option('parallel_netcdf')
+  add_global_arguments('-DPNETCDF', language: 'fortran')
+  if not get_option('mpi')
+    warning('MPI must be enabled for parallel NetCDF to work')
+  endif
+endif
+
+# List of all sources in the project (should be added to in subfolders)
 sources = []
 
 # Process the following subdirectories which contain other 'meson.build' files
@@ -34,9 +64,11 @@ sources = []
 subdir('ben02')
 subdir('cesm')
 subdir('drivers')
+subdir('idlage')
 subdir('phy')
+subdir('trc')
 
 # Create BLOM executable
 executable('blom', sources,
-  include_directories: [cesm_inc, phy_inc, trc_inc],
-  dependencies: [netcdf, omp, quadmath])
+  include_directories: includes,
+  dependencies: deps)
