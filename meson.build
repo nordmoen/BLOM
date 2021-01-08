@@ -6,13 +6,17 @@ project('BLOM', ['fortran', 'c'],
 # Setup additional flags for compilation
 fcc = meson.get_compiler('fortran')
 if fcc.get_id() == 'gcc'
-  add_global_arguments(['-fdefault-real-8'], language: 'fortran')
+  add_global_arguments(['-fdefault-real-8', '-fconvert=big-endian'],
+    language: 'fortran')
+elif fcc.get_id() == 'intel'
+  add_global_arguments(['-r8', '-convert big_endian', '-assume byterecl'],
+    language: 'fortran')
 else
   warning('Unknown Fortran compiler ("' + fcc.get_id() + '"), no default flags specified')
 endif
 
 # Define global dependencies that multiple subdirectories will utilize
-netcdf = dependency('netcdf', language: 'fortran')
+netcdf = dependency('netcdf', language: 'fortran', version: '>=4.4.5')
 omp = dependency('openmp', required: get_option('openmp'))
 quadmath = fcc.find_library('quadmath')
 
@@ -51,7 +55,7 @@ endif
 
 if get_option('parallel_netcdf')
   add_global_arguments('-DPNETCDF', language: 'fortran')
-  deps += dependency('pnetcdf')
+  deps += dependency('pnetcdf', version: '>=1.11.0')
   if not get_option('mpi')
     warning('MPI must be enabled for parallel NetCDF to work')
   endif
@@ -72,4 +76,5 @@ subdir('trc')
 # Create BLOM executable
 executable('blom', sources,
   include_directories: includes,
-  dependencies: deps)
+  dependencies: deps,
+  link_language: 'fortran')
