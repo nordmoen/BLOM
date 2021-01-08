@@ -11,6 +11,11 @@ else
   warning('Unknown Fortran compiler ("' + fcc.get_id() + '"), no default flags specified')
 endif
 
+# Handle options and add necessary flags
+if get_option('levitus2x')
+  add_global_arguments('-DLEVITUS2X', language: 'fortran')
+endif
+
 # Define global dependencies that multiple subdirectories will utilize
 netcdf = dependency('netcdf', language: 'fortran')
 omp = dependency('openmp', required: false)
