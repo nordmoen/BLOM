@@ -20,7 +20,7 @@ netcdf = dependency('netcdf', language: 'fortran', version: '>=4.4.5')
 omp = dependency('openmp', required: get_option('openmp'))
 quadmath = fcc.find_library('quadmath')
 
-# List of dependencies (used so that options can add dependencies at build)
+# List of dependencies (used so that options can add dependencies)
 deps = [netcdf, omp, quadmath]
 
 # Directories with header files
