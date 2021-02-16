@@ -39,6 +39,9 @@ jobs:
 
       - name: Run Meson build step
         uses: BSFishy/meson-build@v1.0.2
+        env:
+          CC: gcc-10
+          FC: gfortran-10
         with:
           action: build
           directory: builddir
